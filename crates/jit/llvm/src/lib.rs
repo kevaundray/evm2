@@ -2100,6 +2100,11 @@ fn init_() -> Result<()> {
         // every machine instruction.
         c"-disable-x86-domain-reassignment".as_ptr(),
         c"-disable-postra-machine-licm".as_ptr(),
+        // Loop strength reduction runs after the codegen pipeline expands wide divisions, and
+        // rewriting a gas IV's exit value through an i256 trip count (an EVM counter that wraps)
+        // emits `udiv i256`, which has no libcall on x86-64: instruction selection aborts the
+        // process with "unsupported library call operation" at -O1/-O2.
+        c"-disable-lsr".as_ptr(),
     ];
     args.extend(extra.iter().map(|s| s.as_ptr()));
     unsafe {
