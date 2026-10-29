@@ -167,6 +167,20 @@ impl StackSectionAnalysis {
         self.diff
     }
 
+    /// Returns the stack inputs required so far, without the `u16` saturation of
+    /// [`StackSection::inputs`].
+    #[inline]
+    pub(crate) const fn inputs(&self) -> i32 {
+        self.inputs
+    }
+
+    /// Returns the maximum stack growth so far, without the `i16` saturation of
+    /// [`StackSection::max_growth`].
+    #[inline]
+    pub(crate) const fn max_growth(&self) -> i32 {
+        self.max_growth
+    }
+
     /// Accumulates a single instruction's stack I/O.
     #[inline]
     pub(crate) fn process(&mut self, inputs: u8, outputs: u8) {
