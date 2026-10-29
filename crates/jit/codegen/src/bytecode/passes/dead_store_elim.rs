@@ -57,15 +57,16 @@ impl Bytecode<'_> {
                 heights.push(stack.diff());
             }
 
-            // Shift all heights so that heights[0] == entry_height.
-            let section = stack.section();
-            let entry_height = section.inputs as i32;
+            // Shift all heights so that heights[0] == entry_height. Use the unsaturated values:
+            // `StackSection` stores `inputs` as `u16` and `max_growth` as `i16`, and a saturated
+            // value would size the liveness vector too small or make heights negative.
+            let entry_height = stack.inputs();
             for h in &mut heights {
                 *h += entry_height;
             }
 
             let exit_height = *heights.last().unwrap();
-            let max_height = entry_height + section.max_growth as i32;
+            let max_height = entry_height + stack.max_growth();
 
             // If the block's terminator diverges, no successor will read the stack,
             // so all exit positions are dead unless `inspect_stack` is set.
@@ -1069,5 +1070,24 @@ mod tests {
             !calldatasize.flags.contains(InstFlags::NOOP),
             "CALLDATASIZE should remain live as CALL's address operand"
         );
+    }
+
+    #[test]
+    fn block_taller_than_i16_max() {
+        // 33000 PUSH0s then `PUSH0 SSTORE STOP`: the block's net growth exceeds the `i16`
+        // stack-section growth, which used to size the liveness vector too small.
+        let mut code = vec![op::PUSH0; 33_000];
+        code.extend([op::PUSH0, op::SSTORE, op::STOP]);
+        let bytecode = analyze_code_spec(code, SpecId::AMSTERDAM);
+        assert!(!bytecode.inst(Inst::from_usize(33_001)).flags.contains(InstFlags::NOOP));
+    }
+
+    #[test]
+    fn block_deeper_than_u16_max() {
+        // 65536 POPs: the block's stack inputs exceed the `u16` stack-section inputs, which used to
+        // make the per-instruction heights negative.
+        let mut code = vec![op::POP; 65_536];
+        code.push(op::STOP);
+        analyze_code_spec(code, SpecId::AMSTERDAM);
     }
 }
